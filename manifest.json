@@ -2,7 +2,7 @@
   "name": "Smarter Hub Ultra AI",
   "short_name": "SmarterAI",
   "description": "Smart Local AI Hub for Chat, Translation and Editing",
-  "start_url": "local_ai_chat.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#2563eb",
