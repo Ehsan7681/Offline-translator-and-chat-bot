@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smarter Hub Ultra | v2.0</title>
+    <!-- اضافه شدن مانیفست برای PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;400;700&display=swap');
+
+        :root {
+            --bg-main: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.1);
+            --text-main: #1e293b;
+            --text-dim: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .dark-theme {
+            --bg-main: #0f172a;
+            --sidebar-bg: #1e293b;
+            --card-bg: #1e293b;
+            --accent: #3b82f6;
+            --accent-soft: rgba(59, 130, 246, 0.2);
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+            --border: #334155;
+            --shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+        }
+
+        * { box-sizing: border-box; font-family: 'Vazirmatn', sans-serif; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        body { margin: 0; background-color: var(--bg-main); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px; background: var(--sidebar-bg); border-left: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 1.2rem; gap: 1rem;
+        }
+
+        .chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        
+        .chat-item {
+            padding: 12px; border-radius: 12px; cursor: pointer; border: 1px solid transparent;
+            display: flex; align-items: center; gap: 10px; font-size: 0.9rem;
+        }
+        .chat-item:hover { background: var(--accent-soft); }
+        .chat-item.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: bold; }
+
+        /* Main */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        
+        header {
+            height: 70px; padding: 0 2rem; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; background: var(--card-bg);
+        }
+
+        .nav-tabs { display: flex; gap: 8px; background: var(--bg-main); padding: 5px; border-radius: 14px; }
+        .tab-btn {
+            border: none; background: none; padding: 8px 18px; border-radius: 10px;
+            cursor: pointer; color: var(--text-dim); font-weight: 600; font-size: 0.9rem;
+        }
+        .tab-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: var(--shadow); }
+
+        .content-area { flex: 1; padding: 1.5rem; overflow-y: auto; display: none; }
+        .content-area.active { display: flex; flex-direction: column; }
+
+        /* Chat View */
+        #chat-scroller { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; padding: 10px; }
+        
+        .msg { max-width: 85%; line-height: 1.8; animation: slideUp 0.3s ease-out; }
+        .msg.user { align-self: flex-start; }
+        .msg.ai { align-self: flex-end; width: 100%; }
+
+        .bubble {
+            padding: 1rem 1.4rem; border-radius: 20px; font-size: 0.95rem; box-shadow: var(--shadow);
+            position: relative;
+        }
+        .user .bubble { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+        .ai .bubble { background: var(--card-bg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+
+        .input-container {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px;
+            padding: 10px; display: flex; align-items: flex-end; gap: 10px; margin-top: 1rem;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.02);
+        }
+
+        textarea {
+            flex: 1; border: none; background: none; outline: none; padding: 10px;
+            color: var(--text-main); font-size: 1rem; max-height: 200px; resize: none;
+        }
+
+        .icon-btn {
+            width: 45px; height: 45px; border-radius: 15px; border: none;
+            background: var(--bg-main); color: var(--text-main); cursor: pointer;
+            display: grid; place-items: center;
+        }
+        .icon-btn:hover { background: var(--border); }
+        .icon-btn.primary { background: var(--accent); color: white; }
+
+        /* Editor */
+        #editor-canvas {
+            flex: 1; background: var(--card-bg); border-radius: 25px; padding: 3rem;
+            box-shadow: var(--shadow); border: 1px solid var(--border);
+            font-size: 1.15rem; line-height: 2.2; outline: none; overflow-y: auto;
+        }
+
+        /* Utils */
+        .stats { font-size: 0.75rem; color: var(--text-dim); padding: 8px 2rem; border-top: 1px solid var(--border); display: flex; gap: 20px; }
+        .hidden { display: none !important; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Grid for Translator */
+        .trans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; flex: 1; }
+        .card { background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border); display: flex; flex-direction: column; padding: 1rem; }
+        select, input[type="text"] {
+            background: var(--bg-main); border: 1px solid var(--border); border-radius: 10px;
+            padding: 8px; color: var(--text-main); outline: none;
+        }
+
+        #image-preview-zone {
+            display: flex; gap: 10px; padding: 10px; background: var(--accent-soft); border-radius: 15px; margin-bottom: 5px;
+        }
+
+        /* Drag & Drop Effect */
+        .drag-over { border: 2px dashed var(--accent) !important; background: var(--accent-soft) !important; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
+            <div style="width: 40px; height: 40px; background: var(--accent); border-radius: 10px; display: grid; place-items: center; color: white; font-weight: bold;">AI</div>
+            <h2 style="margin:0; font-size: 1.1rem;">Smarter Hub</h2>
+        </div>
+        
+        <button class="icon-btn primary" onclick="createNewChat()" style="width: 100%; height: 50px; font-weight: bold; gap: 10px; display: flex;">
+            <span>+</span> گفتگوی جدید
+        </button>
+
+        <input type="text" id="search-input" placeholder="جستجو در پیام‌ها..." oninput="filterChats()" style="width: 100%; margin: 10px 0;">
+
+        <div class="chat-list" id="chat-list-container"></div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+            <button class="tab-btn" onclick="clearAllData()" style="color: #ef4444; width: 100%; text-align: right;">🗑️ پاکسازی کامل حافظه</button>
+        </div>
+    </aside>
+
+    <div class="main-wrapper">
+        <header>
+            <div class="nav-tabs">
+                <button class="tab-btn active" onclick="switchTab('chat', this)">💬 گفتگو</button>
+                <button class="tab-btn" onclick="switchTab('translate', this)">🌐 مترجم</button>
+                <button class="tab-btn" onclick="switchTab('editor', this)">📝 ویراستار</button>
+                <button class="tab-btn" onclick="switchTab('settings', this)">⚙️ تنظیمات</button>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <div id="conn-status" style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; background: var(--bg-main); padding: 5px 12px; border-radius: 20px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span> آفلاین
+                </div>
+                <button class="icon-btn" onclick="toggleTheme()" id="theme-toggle">🌙</button>
+            </div>
+        </header>
+
+        <!-- Chat View -->
+        <section id="view-chat" class="content-area active">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                <select id="persona" class="tab-btn" style="background: var(--card-bg); border: 1px solid var(--border);">
+                    <option value="General">🤖 دستیار هوشمند</option>
+                    <option value="Coder">💻 برنامه‌نویس ارشد</option>
+                    <option value="Writer">✍️ نویسنده خلاق</option>
+                    <option value="Legal">⚖️ مشاور حقوقی</option>
+                    <option value="Teacher">🎓 معلم دلسوز</option>
+                </select>
+            </div>
+            
+            <div id="chat-scroller"></div>
+
+            <div id="image-preview-zone" class="hidden"></div>
+            <div class="input-container">
+                <button class="icon-btn" onclick="document.getElementById('file-up').click()">📎</button>
+                <input type="file" id="file-up" class="hidden" accept="image/*" onchange="previewImage(this)">
+                <textarea id="main-input" placeholder="پیامی بنویسید... (Ctrl+Enter برای ارسال)" rows="1"></textarea>
+                <button class="icon-btn primary" onclick="sendMessage()">🚀</button>
+            </div>
+        </section>
+
+        <!-- Translator View -->
+        <section id="view-translate" class="content-area">
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+                <select id="t-lang-to">
+                    <option value="Persian">🇮🇷 فارسی</option>
+                    <option value="English">🇺🇸 English</option>
+                    <option value="German">🇩🇪 Deutsch</option>
+                    <option value="French">🇫🇷 Français</option>
+                    <option value="Arabic">🇸🇦 العربية</option>
+                    <option value="Turkish">🇹🇷 Türkçe</option>
+                    <option value="Russian">🇷🇺 Русский</option>
+                    <option value="Spanish">🇪🇸 Español</option>
+                    <option value="Italian">🇮🇹 Italiano</option>
+                    <option value="Chinese">🇨🇳 中文</option>
+                    <option value="Japanese">🇯🇵 日本語</option>
+                    <option value="Korean">🇰🇷 한국어</option>
+                    <option value="Hindi">🇮🇳 हिन्दी</option>
+                    <option value="Portuguese">🇵🇹 Português</option>
+                    <option value="Dutch">🇳🇱 Nederlands</option>
+                    <option value="Swedish">🇸🇪 Svenska</option>
+                </select>
+                <select id="t-tone">
+                    <option value="Literal">🎯 ترجمه دقیق (کلمه به کلمه)</option>
+                    <option value="Formal">👔 رسمی و اداری</option>
+                    <option value="Casual">😊 دوستانه و صمیمی</option>
+                    <option value="Academic">🎓 علمی و دانشگاهی</option>
+                    <option value="Literary">📜 ادبی و کلاسیک</option>
+                    <option value="Technical">🛠️ فنی و مهندسی</option>
+                    <option value="Medical">🏥 پزشکی و سلامت</option>
+                    <option value="Marketing">📈 تبلیغاتی و بازاریابی</option>
+                    <option value="Legal">⚖️ حقوقی و قضایی</option>
+                </select>
+                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                    <input type="checkbox" id="extract-keywords"> لغات کلیدی
+                </label>
+                <button id="trans-btn" class="icon-btn primary" style="width: auto; padding: 0 25px;" onclick="runTranslation()">✨ شروع ترجمه فوری</button>
+            </div>
+            <div class="trans-grid">
+                <div class="card" id="drop-zone-source">
+                    <span style="font-weight: bold; margin-bottom: 8px; font-size: 0.8rem; color: var(--text-dim);">متن مبدأ (فایل متنی را اینجا رها کنید)</span>
+                    <textarea id="t-input" style="height: 100%;" placeholder="متن خود را اینجا بنویسید یا یک فایل .txt / .md را به اینجا بکشید..."></textarea>
+                </div>
+                <div class="card">
+                    <span style="font-weight: bold; margin-bottom: 8px; font-size: 0.8rem; color: var(--text-dim);">خروجی خالص ترجمه</span>
+                    <textarea id="t-output" style="height: 100%;" readonly placeholder="منتظر متن مبدأ..."></textarea>
+                    <div id="keyword-display" class="hidden" style="margin-top: 10px; padding: 12px; background: var(--bg-main); border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--border);"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Editor View -->
+        <section id="view-editor" class="content-area">
+            <div style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
+                <button class="icon-btn" style="width: auto; padding: 0 15px;" onclick="doEditor('summarize')">📋 خلاصه‌سازی</button>
+                <button class="icon-btn" style="width: auto; padding: 0 15px;" onclick="doEditor('expand')">➕ بسط دادن</button>
+                <button class="icon-btn" style="width: auto; padding: 0 15px;" onclick="doEditor('correct')">✨ اصلاح نگارش</button>
+                <button class="icon-btn primary" style="width: auto; padding: 0 15px; margin-right: auto;" onclick="exportEditor()">📥 دانلود فایل</button>
+            </div>
+            <div id="editor-canvas" contenteditable="true" placeholder="اینجا بنویسید..."></div>
+        </section>
+
+        <!-- Settings View -->
+        <section id="view-settings" class="content-area">
+            <h3>تنظیمات سیستم</h3>
+            <div style="max-width: 600px; display: flex; flex-direction: column; gap: 20px;">
+                <div class="card">
+                    <label>آدرس سرور LM Studio:</label>
+                    <input type="text" id="api-url" value="http://localhost:1234/v1/chat/completions" style="margin-top: 5px;">
+                </div>
+                <div class="card">
+                    <label>مدل هوشمند فعلی:</label>
+                    <select id="model-list" style="margin-top: 5px;"><option>در حال دریافت لیست...</option></select>
+                </div>
+                <div id="vision-tag" style="font-size: 0.9rem; font-weight: bold;"></div>
+            </div>
+        </section>
+
+        <div class="stats">
+            <span>سرعت تولید: <b id="stat-tps">0</b> t/s</span>
+            <span>مدل: <b id="stat-model-name">---</b></span>
+            <span>مدت زمان آخرین پاسخ: <b id="stat-time">0</b>s</span>
+        </div>
+    </div>
+
+    <script>
+        let currentChatId = null;
+        let chats = JSON.parse(localStorage.getItem('sh_ultra_v2') || '{}');
+        let tempImage = null;
+
+        marked.setOptions({
+            highlight: function(code, lang) {
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true
+        });
+
+        function switchTab(id, btn) {
+            document.querySelectorAll('.content-area').forEach(a => a.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('view-' + id).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            document.getElementById('theme-toggle').innerText = isDark ? '☀️' : '🌙';
+        }
+
+        async function askAI(messages, config = {}) {
+            const url = document.getElementById('api-url').value;
+            const model = document.getElementById('model-list').value;
+            const start = Date.now();
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages,
+                        model: model,
+                        temperature: config.temp || 0.4,
+                        max_tokens: config.max || 4096,
+                        stream: false
+                    })
+                });
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+                const time = (Date.now() - start) / 1000;
+                document.getElementById('stat-time').innerText = time.toFixed(1);
+                document.getElementById('stat-tps').innerText = (content.length / 4 / time).toFixed(1);
+                return content;
+            } catch (e) {
+                console.error(e);
+                return "❌ خطای اتصال به سرور محلی.";
+            }
+        }
+
+        function createNewChat() {
+            const id = 'c_' + Date.now();
+            chats[id] = { title: 'گفتگوی جدید', msgs: [], created: new Date() };
+            currentChatId = id;
+            updateUI();
+        }
+
+        function updateUI() {
+            localStorage.setItem('sh_ultra_v2', JSON.stringify(chats));
+            renderSidebar();
+            renderChat();
+        }
+
+        function renderSidebar() {
+            const container = document.getElementById('chat-list-container');
+            container.innerHTML = '';
+            Object.entries(chats).sort((a,b) => b[1].created - a[1].created).forEach(([id, data]) => {
+                const el = document.createElement('div');
+                el.className = `chat-item ${currentChatId === id ? 'active' : ''}`;
+                el.innerHTML = `<span>💬</span> <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${data.title}</span>`;
+                el.onclick = () => { currentChatId = id; updateUI(); };
+                container.appendChild(el);
+            });
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('main-input');
+            const text = input.value.trim();
+            if(!text && !tempImage) return;
+
+            if(!currentChatId) createNewChat();
+
+            const userMsg = { role: 'user', content: text, image: tempImage };
+            chats[currentChatId].msgs.push(userMsg);
+            if(chats[currentChatId].title === 'گفتگوی جدید') chats[currentChatId].title = text.substring(0, 30);
+            
+            input.value = '';
+            tempImage = null;
+            document.getElementById('image-preview-zone').classList.add('hidden');
+            renderChat();
+
+            const persona = document.getElementById('persona').value;
+            const systemPrompts = {
+                General: "You are a concise AI. RULES: 1. NO introduction like 'سلام' or 'I am fine'. 2. NO yapping. 3. ONLY answer the question directly. 4. Use ONLY the language the user is speaking. 5. NO translations of your response.",
+                Coder: "STRICT CODE ONLY. Respond ONLY in the user's language. No fluff, no extra text.",
+                Writer: "STRICT WRITING ONLY. No intro/outro. Only the content in user's language.",
+                Legal: "STRICT LEGAL ANSWER ONLY. Concise and direct in user's language.",
+                Teacher: "STRICT EXPLANATION ONLY. No small talk. Concise in user's language."
+            };
+
+            const response = await askAI([
+                { role: 'system', content: systemPrompts[persona] },
+                ...chats[currentChatId].msgs.map(m => ({role: m.role, content: m.content}))
+            ]);
+
+            chats[currentChatId].msgs.push({ role: 'assistant', content: response });
+            updateUI();
+        }
+
+        function renderChat() {
+            const win = document.getElementById('chat-scroller');
+            win.innerHTML = '';
+            if(!currentChatId) return;
+
+            chats[currentChatId].msgs.forEach(m => {
+                const div = document.createElement('div');
+                div.className = `msg ${m.role === 'user' ? 'user' : 'ai'}`;
+                div.innerHTML = `<div class="bubble">${marked.parse(m.content)}</div>`;
+                win.appendChild(div);
+            });
+            win.scrollTop = win.scrollHeight;
+        }
+
+        async function runTranslation() {
+            const src = document.getElementById('t-input').value.trim();
+            const target = document.getElementById('t-output');
+            const lang = document.getElementById('t-lang-to').value;
+            const tone = document.getElementById('t-tone').value;
+            const kw = document.getElementById('extract-keywords').checked;
+            const btn = document.getElementById('trans-btn');
+
+            if(!src) return;
+            
+            target.value = "در حال ترجمه دقیق...";
+            btn.disabled = true;
+            btn.innerText = "⏳ در حال پردازش...";
+
+            let systemContent = `STRICT TRANSLATOR. 
+            RULES:
+            1. ONLY the translation. 
+            2. NO talking, NO intro.
+            3. If keywords are requested, add '---' then list them EXACTLY as 'MainWord: Meaning' per line. NO descriptions.`;
+
+            let userContent = `Translate to: ${lang}, Tone: ${tone}.
+            ${kw ? "Instruction: After translation, add '---' then list 5 key words as 'Word: Meaning'." : ""}
+            
+            Text:
+            ${src}`;
+
+            const result = await askAI([
+                { role: 'system', content: systemContent },
+                { role: 'user', content: userContent }
+            ], { temp: 0.1 });
+            
+            if(kw && result.includes('---')) {
+                const parts = result.split('---');
+                target.value = parts[0].trim();
+                const kwDiv = document.getElementById('keyword-display');
+                kwDiv.classList.remove('hidden');
+                kwDiv.innerHTML = "<strong>🔑 لغات کلیدی:</strong><br>" + parts[1].trim().replace(/\n/g, '<br>');
+            } else {
+                target.value = result.trim();
+                document.getElementById('keyword-display').classList.add('hidden');
+            }
+
+            btn.disabled = false;
+            btn.innerText = "✨ شروع ترجمه فوری";
+        }
+
+        async function doEditor(action) {
+            const canvas = document.getElementById('editor-canvas');
+            const text = canvas.innerText;
+            if(!text) return;
+
+            const prompts = {
+                summarize: "Summarize this text in Persian. No intro.",
+                expand: "Expand this text in Persian. No intro.",
+                correct: "Fix Persian grammar. No intro."
+            };
+
+            canvas.style.opacity = '0.5';
+            const result = await askAI([{ role: 'user', content: prompts[action] + ":\n\n" + text }]);
+            canvas.innerText = result;
+            canvas.style.opacity = '1';
+        }
+
+        function previewImage(input) {
+            const file = input.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    tempImage = e.target.result;
+                    const zone = document.getElementById('image-preview-zone');
+                    zone.classList.remove('hidden');
+                    zone.innerHTML = `<img src="${tempImage}" style="height:60px; border-radius:10px; border:2px solid var(--accent);"> <span>آماده ارسال...</span>`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        const dropZone = document.getElementById('drop-zone-source');
+        const tInput = document.getElementById('t-input');
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if(file && (file.name.endsWith('.txt') || file.name.endsWith('.md'))) {
+                const reader = new FileReader();
+                reader.onload = (re) => tInput.value = re.target.result;
+                reader.readAsText(file);
+            }
+        });
+
+        async function checkHealth() {
+            const dot = document.querySelector('#conn-status span');
+            const txt = document.querySelector('#conn-status');
+            const statModel = document.getElementById('stat-model-name');
+            try {
+                const baseUrl = document.getElementById('api-url').value.split('/chat')[0];
+                const res = await fetch(`${baseUrl}/models`);
+                const data = await res.json();
+                const list = document.getElementById('model-list');
+                list.innerHTML = data.data.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+                dot.style.background = '#10b981';
+                txt.lastChild.textContent = ' آنلاین';
+                statModel.innerText = data.data[0].id;
+                const isVision = data.data[0].id.toLowerCase().includes('vision');
+                document.getElementById('vision-tag').innerHTML = isVision ? "✅ قابلیت Vision فعال است" : "⚠️ مدل فعلی Vision نیست";
+            } catch {
+                dot.style.background = '#94a3b8';
+                txt.lastChild.textContent = ' آفلاین';
+            }
+        }
+
+        function clearAllData() {
+            if(confirm("تمامی اطلاعات شما برای همیشه پاک شود؟")) {
+                localStorage.removeItem('sh_ultra_v2');
+                location.reload();
+            }
+        }
+
+        function exportEditor() {
+            const text = document.getElementById('editor-canvas').innerText;
+            const blob = new Blob([text], {type: 'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'refined_text.txt';
+            a.click();
+        }
+
+        document.getElementById('main-input').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        document.getElementById('main-input').addEventListener('keydown', e => {
+            if(e.ctrlKey && e.key === 'Enter') sendMessage();
+        });
+
+        // --- بخش ثبت سرویس ورکر برای PWA ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('SW Registered!', reg))
+                    .catch(err => console.log('SW Reg Failed!', err));
+            });
+        }
+
+        window.onload = () => {
+            renderSidebar();
+            checkHealth();
+            setInterval(checkHealth, 15000);
+        };
+    </script>
+</body>
+</html>
